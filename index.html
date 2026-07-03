@@ -194,6 +194,40 @@
     .countdown{ gap:8px; }
     .cd-box{ width:56px; padding:10px 6px; }
   }
+
+  /* ---------- scratch card ---------- */
+  .scratch-container{
+    position:relative;
+    width:calc(100% - 32px); max-width:360px; height:160px;
+    margin:0 auto 6px; border-radius:18px; overflow:hidden;
+    box-shadow:0 12px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(201,161,90,0.25);
+  }
+  .scratch-under{
+    width:100%; height:100%;
+    background:linear-gradient(135deg,#fdf6e3 0%,#f5d98a 40%,#e8c060 100%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:10px;
+  }
+  .scratch-date-display{
+    font-family:'Cormorant Garamond', serif; font-weight:600; font-size:36px;
+    color:#5c1412; line-height:1; font-style:italic;
+    text-shadow:0 1px 0 rgba(255,255,255,0.5);
+  }
+  .scratch-date-display sup{ font-size:17px; vertical-align:super; font-style:normal; }
+  .scratch-day{
+    font-family:'Cinzel', serif; font-size:10px; letter-spacing:0.25em;
+    color:#7c1e1a; text-transform:uppercase;
+  }
+  #scratchCanvas{
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    cursor:crosshair; touch-action:none;
+  }
+  .scratch-hint{
+    font-family:'Cormorant Garamond', serif; font-style:italic;
+    font-size:13px; color:var(--gold-dim); letter-spacing:0.08em;
+    margin:8px 0 22px; text-align:center;
+    animation:blink 1.8s ease-in-out infinite;
+  }
 </style>
 </head>
 <body>
@@ -262,8 +296,17 @@
     <section>
       <div class="section-title">Save the Date</div>
       <div class="section-sub">Mark your calendars — our forever begins here</div>
-      <div class="date-pill" id="weddingDateLabel">22nd February 2027</div>
-      <div class="countdown" id="countdown">
+
+      <div class="scratch-container" id="scratchContainer">
+        <div class="scratch-under">
+          <div class="scratch-date-display">22<sup>nd</sup> February 2027</div>
+          <div class="scratch-day">Sunday · Our Wedding Day</div>
+        </div>
+        <canvas id="scratchCanvas"></canvas>
+      </div>
+      <p class="scratch-hint" id="scratchHint">✦ Scratch to reveal our date ✦</p>
+
+      <div class="countdown" id="countdown" style="display:none; margin-top:4px;">
         <div class="cd-box"><div class="cd-num" id="cd-days">--</div><div class="cd-label">Days</div></div>
         <div class="cd-box"><div class="cd-num" id="cd-hours">--</div><div class="cd-label">Hrs</div></div>
         <div class="cd-box"><div class="cd-num" id="cd-mins">--</div><div class="cd-label">Min</div></div>
@@ -286,7 +329,7 @@
           </div>
           <div>
             <div class="event-name">Haldi Ceremony</div>
-            <div class="event-meta">19th Feb 2027 · 10:00 AM · Rajguru Residence</div>
+            <div class="event-meta">19th Feb 2027 · 10:00 AM · Rabindra Bhawan</div>
           </div>
         </div>
 
@@ -296,7 +339,7 @@
           </div>
           <div>
             <div class="event-name">Mehndi Ceremony</div>
-            <div class="event-meta">20th Feb 2027 · 2:00 PM · The Pod Retreat Lawns</div>
+            <div class="event-meta">20th Feb 2027 · 2:00 PM · Rabindra Bhawan</div>
           </div>
         </div>
 
@@ -306,7 +349,7 @@
           </div>
           <div>
             <div class="event-name">Sangeet Night</div>
-            <div class="event-meta">21st Feb 2027 · 7:00 PM · Vivanta Palace Grounds</div>
+            <div class="event-meta">21st Feb 2027 · 7:00 PM · Rabindra Bhawan</div>
           </div>
         </div>
 
@@ -316,7 +359,7 @@
           </div>
           <div>
             <div class="event-name">Wedding Ceremony</div>
-            <div class="event-meta">22nd Feb 2027 · 6:00 PM · Vivanta Palace Grounds</div>
+            <div class="event-meta">22nd Feb 2027 · 6:00 PM · Rabindra Bhawan</div>
           </div>
         </div>
 
@@ -329,9 +372,9 @@
 
     <section>
       <div class="section-title">Where We Celebrate</div>
-      <div class="venue-name">Vivanta Palace Grounds</div>
-      <div class="venue-addr">Fatehsagar Road, Udaipur, Rajasthan</div>
-      <a class="directions-btn" href="https://www.google.com/maps/search/?api=1&query=Vivanta+Palace+Grounds+Udaipur" target="_blank" rel="noopener">Get Directions</a>
+      <div class="venue-name">Rabindra Bhawan</div>
+      <div class="venue-addr">Shivaji Road, Durgapur, West Bengal</div>
+      <a class="directions-btn" href="https://maps.app.goo.gl/or1XxHdJdQqta1nm8" target="_blank" rel="noopener">Get Directions</a>
     </section>
 
     <footer>
@@ -356,6 +399,8 @@
     var content = document.getElementById('content');
     content.classList.add('show');
     revealCards();
+    // double rAF ensures layout is painted before canvas reads offsetWidth/Height
+    requestAnimationFrame(function(){ requestAnimationFrame(initScratch); });
   });
 
   // petals
@@ -368,6 +413,131 @@
     p.style.animationDelay = (Math.random()*8)+'s';
     p.style.opacity = 0.3+Math.random()*0.4;
     petalHost.appendChild(p);
+  }
+
+  // scratch card — called after content becomes visible so canvas has real dimensions
+  var scratchReady = false;
+  function initScratch(){
+    if(scratchReady) return;
+    scratchReady = true;
+
+    var container = document.getElementById('scratchContainer');
+    var canvas    = document.getElementById('scratchCanvas');
+    if(!canvas||!container) return;
+    var ctx = canvas.getContext('2d');
+    var revealed = false;
+
+    function setupCanvas(){
+      canvas.width  = container.offsetWidth;
+      canvas.height = container.offsetHeight;
+      drawCover();
+    }
+
+    function drawCover(){
+      ctx.globalCompositeOperation = 'source-over';
+
+      // rich maroon gradient
+      var grad = ctx.createLinearGradient(0,0,canvas.width,canvas.height);
+      grad.addColorStop(0,'#5c1010');
+      grad.addColorStop(0.45,'#7c1e1a');
+      grad.addColorStop(1,'#4a0e0c');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+
+      // gold shimmer particles
+      for(var i=0;i<120;i++){
+        ctx.beginPath();
+        ctx.arc(Math.random()*canvas.width, Math.random()*canvas.height, Math.random()*2.4, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(240,209,143,'+(0.08+Math.random()*0.55)+')';
+        ctx.fill();
+      }
+
+      // decorative corner brackets
+      var m=14, len=22;
+      ctx.strokeStyle='rgba(201,161,90,0.7)'; ctx.lineWidth=1.5;
+      [[m,m,1,1],[canvas.width-m,m,-1,1],[m,canvas.height-m,1,-1],[canvas.width-m,canvas.height-m,-1,-1]].forEach(function(c){
+        ctx.beginPath(); ctx.moveTo(c[0]+c[2]*len,c[1]); ctx.lineTo(c[0],c[1]); ctx.lineTo(c[0],c[1]+c[3]*len); ctx.stroke();
+      });
+
+      // outer gold border
+      ctx.strokeStyle='rgba(201,161,90,0.9)'; ctx.lineWidth=1.5;
+      ctx.strokeRect(3,3,canvas.width-6,canvas.height-6);
+
+      // dashed inner border
+      ctx.setLineDash([4,4]);
+      ctx.strokeStyle='rgba(240,209,143,0.3)'; ctx.lineWidth=1;
+      ctx.strokeRect(8,8,canvas.width-16,canvas.height-16);
+      ctx.setLineDash([]);
+
+      // heading text
+      ctx.textAlign='center';
+      ctx.shadowColor='rgba(240,209,143,0.5)'; ctx.shadowBlur=10;
+      ctx.font="600 13px 'Cinzel',serif";
+      ctx.fillStyle='#f0d18f';
+      ctx.fillText('✦   SCRATCH TO REVEAL   ✦', canvas.width/2, canvas.height/2-16);
+      ctx.shadowBlur=0;
+
+      // sub text
+      ctx.font="italic 13px 'Cormorant Garamond',serif";
+      ctx.fillStyle='rgba(240,209,143,0.68)';
+      ctx.fillText('our wedding date awaits you', canvas.width/2, canvas.height/2+8);
+
+      // finger emoji
+      ctx.font='20px serif';
+      ctx.fillText('👆', canvas.width/2, canvas.height/2+36);
+    }
+
+    setupCanvas();
+
+    var scratching = false;
+
+    function getXY(e){
+      var r = canvas.getBoundingClientRect();
+      var sx = canvas.width/r.width, sy = canvas.height/r.height;
+      var src = e.touches ? e.touches[0] : e;
+      return { x:(src.clientX-r.left)*sx, y:(src.clientY-r.top)*sy };
+    }
+
+    function doScratch(e){
+      e.preventDefault();
+      if(!scratching||revealed) return;
+      var p = getXY(e);
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 32, 0, Math.PI*2);
+      ctx.fill();
+      checkDone();
+    }
+
+    function checkDone(){
+      var data = ctx.getImageData(0,0,canvas.width,canvas.height).data;
+      var total=0, cleared=0;
+      for(var i=3; i<data.length; i+=4*6){ total++; if(data[i]<128) cleared++; }
+      if(cleared/total > 0.52) fullReveal();
+    }
+
+    function fullReveal(){
+      if(revealed) return;
+      revealed = true;
+      canvas.style.transition = 'opacity 0.8s ease';
+      canvas.style.opacity = '0';
+      setTimeout(function(){
+        canvas.style.display = 'none';
+        var hint = document.getElementById('scratchHint');
+        if(hint) hint.style.display = 'none';
+        var cd = document.getElementById('countdown');
+        cd.style.display = 'flex';
+        cd.style.animation = 'fadeUp 0.8s ease forwards';
+      }, 800);
+    }
+
+    canvas.addEventListener('mousedown', function(e){ scratching=true; doScratch(e); });
+    canvas.addEventListener('mousemove', doScratch);
+    canvas.addEventListener('mouseup',   function(){ scratching=false; });
+    canvas.addEventListener('mouseleave',function(){ scratching=false; });
+    canvas.addEventListener('touchstart',function(e){ scratching=true; doScratch(e); },{passive:false});
+    canvas.addEventListener('touchmove', doScratch,{passive:false});
+    canvas.addEventListener('touchend',  function(){ scratching=false; });
   }
 
   // countdown
